@@ -1,0 +1,252 @@
+/**
+ * An interface to the FastCGI library provided by Open Market.
+ *
+ * Provides a function to loop through requests, creating a thread for each
+ * request.
+ *
+ * Also provides adapters to allow access to the input and output streams and
+ * the environment variables via D style interfaces.
+ *
+ * Copyright 2013 Jaypha
+ * Distributed under the Boost License V1.0.
+ * Authors: Jason den Dulk
+ *
+ * Written in the D programming language.
+ */
+
+module jaypha.fcgi.loop;
+
+import std.concurrency;
+import std.array;
+
+import jaypha.fcgi.c.fcgiapp;
+
+//---------------------------------------------------------------------------
+
+/**
+ * FCGI_Outstream
+ *
+ * An adapter for outgoing FCGI streams that acts as an output range.
+ */
+
+struct FCGI_OutStream
+{
+  FCGX_Stream* stream;
+
+  this(FCGX_Stream* _stream)
+  {
+    stream = _stream;
+  }
+
+  void put(const char[] c)
+  {
+    FCGX_PutStr(c.ptr, cast(int)c.length, stream);
+  }
+
+  void put(const char c)
+  {
+    FCGX_PutChar(c, stream);
+  }
+}
+
+//---------------------------------------------------------------------------
+
+/**
+ * FCGI_InStream
+ *
+ * An adapter for incoming FCGI streams that acts as an input range.
+ */
+
+struct FCGI_InStream
+{
+  FCGX_Stream* stream;
+
+  this(FCGX_Stream* _stream)
+  {
+    stream = _stream;
+    popFront();
+  }
+
+  bool empty = false;
+  char front;
+
+  void popFront()
+  {
+    int next = FCGX_GetChar(stream);
+    if (next == -1)
+      empty = true;
+    front = cast(char) next;
+  }
+/+
+  int current = -1;
+
+  @property bool empty()
+  {
+    if (current != -1)
+      return false;
+
+    // If current is -1, then we are either at the very beginning, or the very
+    // end.
+
+    if (FCGX_HasSeenEOF(stream) == -1) // -1 == EOF
+      return true;
+    int c = FCGX_GetChar(stream);
+    if (c == -1)
+      return true;
+    FCGX_UnGetChar(c, stream);
+    return false;
+  }
+
+  void popFront()
+  {
+    current = FCGX_GetChar(stream);
+  }
+
+  @property char front()
+  {
+    if (current == -1)
+      popFront();
+    return cast(char) current;
+  }
++/
+}
+
+//---------------------------------------------------------------------------
+
+/**
+ * FCGI_Request
+ *
+ * Bundle up stuff used by a request.
+ */
+
+final class FCGI_Request
+{
+  private FCGX_Request request;
+
+  FCGI_OutStream fcgi_out;
+  FCGI_OutStream fcgi_err;
+  FCGI_InStream  fcgi_in;
+
+  string[string] env;
+
+  private void prepare()
+  {
+    fcgi_out = FCGI_OutStream(request._out);
+    fcgi_err = FCGI_OutStream(request._err);
+    fcgi_in  = FCGI_InStream(request._in);
+    env = pp_to_assoc(cast(const(char)**) request.envp);
+  }
+}
+
+//---------------------------------------------------------------------------
+
+void FCGI_loop(void function(FCGI_Request) fp)
+{
+  FCGX_Init();
+
+  while(true)
+  {
+    auto r = new FCGI_Request();
+
+    FCGX_InitRequest(&r.request, 0, 0);
+    FCGX_Accept_r(&r.request);
+
+    spawn(&new_thread, cast(shared)r,fp);
+  }
+}
+
+//---------------------------------------------------------------------------
+
+immutable string basic_error_response = "Content-Type: text/plain\r\nStatus: 500 Internal Error\r\n\r\n";
+
+private void new_thread(shared FCGI_Request r, void function(FCGI_Request) fp)
+{
+  auto rr = cast(FCGI_Request) r;
+  scope(exit) { FCGX_Finish_r(&rr.request); }
+  debug
+  {
+    try
+    {
+      rr.prepare();
+      fp(rr);
+    }
+    catch (Throwable t)
+    {
+      auto s = "Content-Type: text/plain\r\nStatus: 500 "~t.msg~"\r\n\r\n";
+      FCGX_PutStr(s.ptr, cast(int)s.length, rr.request._out);
+      assert(false);
+    }
+  }
+  else
+  {
+    // If an unrecoverable error occurs, a minimal error message is sent to the client.
+    scope(failure)
+    {
+      FCGX_PutStr(basic_error_response.ptr, cast(int)basic_error_response.length, rr.request._out);
+    }
+    rr.prepare();
+    fp(rr);
+  }
+}
+
+//---------------------------------------------------------------------------
+
+/*
+ * Takes the environment variables as given by the FCGI and puts them
+ * into an associative array.
+ *
+ * In FCGI, the environment variables are given in a two dimensional
+ * char array.
+ * The outer array is null terminated.
+ * The inner arrays are C strings of the format "<name>=<value>".
+ */
+
+
+string[string] pp_to_assoc(const(char)** pp)
+{
+  string[string] ass;
+
+  for (const(char)** p = pp; *p !is null; ++p)
+  {
+    const(char)* c = *p;
+    auto napp = appender!string();
+    while (*c != '=')
+    {
+      napp.put(*c);
+      ++c;
+    }
+    ++c;
+    auto vapp = appender!string();
+    while (*c != '\0')
+    {
+      vapp.put(*c);
+      ++c;
+    }
+    ass[napp.data] = vapp.data;
+  }
+  return ass;
+}
+
+//---------------------------------------------------------------------------
+
+unittest
+{
+  import std.range, std.string;
+
+  static assert(isOutputRange!(FCGI_OutStream,const char[]));
+  static assert(isOutputRange!(FCGI_OutStream,const char));
+
+  const(char)*[] pp;
+  pp ~= std.string.toStringz("timber=alice");
+  pp ~= std.string.toStringz("usb=false");
+  pp ~= null;
+
+  auto ass = pp_to_assoc(pp.ptr);
+
+  assert (ass.length == 2);
+  assert ("timber" in ass);
+  assert (ass["timber"] == "alice");
+  assert ("usb" in ass);
+  assert (ass["usb"] == "false");
+}
+
