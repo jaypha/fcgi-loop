@@ -100,21 +100,29 @@ struct FCGI_Request
 }
 
 //---------------------------------------------------------------------------
+// Main loop.
 
-void FCGI_loop(void function(ref FCGI_Request) fp, uint num_threads = default_thread_count)
+void fcgi_loop(void function(ref FCGI_Request) fp, uint num_threads = default_thread_count)
 {
+  // Spawn the required number of threads.
   foreach(i;0..num_threads)
-    spawn(&new_thread, i, fp);
+    spawnLinked(&new_thread, fp);
+
+  // Each time a thread terminates, spawn a new one.
+  while (true)
+  {
+    auto m = receiveOnly!LinkTerminated();
+    spawnLinked(&new_thread, fp);
+  }
 }
 
 //---------------------------------------------------------------------------
 
 immutable string basic_error_response = "Content-Type: text/plain\r\nStatus: 500 Internal Error\r\n\r\n";
 
-private void new_thread(uint threadNo, void function(ref FCGI_Request) fp)
+private void new_thread(void function(ref FCGI_Request) fp)
 {
   FCGI_Request rr;
-  rr.threadNo = threadNo;
 
   FCGX_Init();
 
@@ -177,8 +185,8 @@ unittest
 {
   import std.range, std.string;
 
-  static assert(isOutputRange!(FCGI_OutStream,const char[]));
-  static assert(isOutputRange!(FCGI_OutStream,const char));
+  static assert(isOutputRange!(FCGI_OutStream,const(ubyte)[]));
+  static assert(isOutputRange!(FCGI_OutStream,const ubyte));
 
   const(char)*[] pp;
   pp ~= std.string.toStringz("timber=alice");

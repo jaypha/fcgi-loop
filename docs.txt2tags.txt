@@ -1,0 +1,46 @@
+FCGI Loop
+An interface for FCGI written in D.
+By Jason den Dulk
+
+%!options(xhtml): --css-sugar
+
+This module implements a simple loop interface with FCGI suitable for use with D programs.
+
+The main function ``fcgi_loop`` creates a number of threads, based on the parameter given. Each thread then uses an infinite loop to listen to incoming FCGI requests.
+
+For each request, an FCGI_Request struct is filled and passed to the given callback. The callback is responsible for process the request and generating a viable response.
+
+If an error (or uncaught exception) occurs, a minimal 500 response is generated.
+
+```
+void fcgi_loop(void function(ref FCGI_Request)  fn_ref, uint num_threads)
+```
+
+| fn_ref | function to call for each request
+| num_threads | number of threads to create, defaults to 10.
+
+-----------------------
+
+== Structures ==
+
+Several structures are used in the interface.
+
+**Note:** In HTTP, input and output are defined as //octet streams//. That is, streams of ubyte.
+
+=== struct FCGI_OutStream ===
+
+Output range wrapper for FCGI output streams. Supports put for ``const ubyte`` and ``const(ubyte)[]``.
+
+=== struct FCG_InStream ===
+
+Input range wrapper for FCGI input streams. 
+
+=== struct FCGI_Request ===
+
+Aggregate containing stuff needed to process a request.
+
+|| Property | Type | Description
+| fcgi_out | FCGI_OutStream | The main output stream
+| fcgi_err | FCGI_OutStream | Output stream for errors
+| fcgi_in | FCGI_InStream | Input stream.
+| env | string[string] | AA for environment variables. Includes HTTP headers of input.

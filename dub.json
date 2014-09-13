@@ -1,0 +1,17 @@
+{
+  "name": "fcgi-loop",
+  "description": "Simple interface to FCGI",
+	"authors": ["Jason den Dulk"],
+	"license": "BSL-1.0",
+  "platforms": ["posix"],
+  "libs-posix":  [ "fcgi" ],
+  "targetType": "sourceLibrary",
+  "configurations": [
+		{
+			"name": "sample",
+			"targetType": "executable",
+      "targetName": "sample.fcgi",
+      "mainSourceFile": "sample.d"
+		}
+  ]
+}

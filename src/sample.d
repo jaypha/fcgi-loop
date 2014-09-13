@@ -13,7 +13,7 @@ module sample;
 
 import jaypha.fcgi.loop;
 
-void process(FCGI_Request r)
+void process(ref FCGI_Request r)
 {
   /*
    * Your code to process the request.
@@ -22,9 +22,10 @@ void process(FCGI_Request r)
   r.fcgi_out.put(cast(const(ubyte)[])"Content-Type: text/plain\r\n");
   r.fcgi_out.put(cast(const(ubyte)[])"\r\n");
   r.fcgi_out.put(cast(const(ubyte)[])"Hello World!\r\n");
+  r.fcgi_out.put(cast(const(ubyte)[])"This is FCGI Loop\r\n");
 }
 
 void main()
 {
-  FCGI_loop(&process);
+  fcgi_loop(&process);
 }

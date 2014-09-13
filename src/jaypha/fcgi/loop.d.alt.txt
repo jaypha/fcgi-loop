@@ -1,3 +1,4 @@
+// Written in the D programming language.
 /**
  * An interface to the FastCGI library provided by Open Market.
  *
@@ -10,8 +11,12 @@
  * Copyright 2013 Jaypha
  * Distributed under the Boost License V1.0.
  * Authors: Jason den Dulk
- *
- * Written in the D programming language.
+ */
+ 
+/*
+ * This is an alternative loop mechanism where each request is given its
+ * own thread. Its efficiency compared to the standard mechanism is unknown,
+ * but is more complicated.
  */
 
 module jaypha.fcgi.loop;
@@ -77,38 +82,6 @@ struct FCGI_InStream
       empty = true;
     front = cast(char) next;
   }
-/+
-  int current = -1;
-
-  @property bool empty()
-  {
-    if (current != -1)
-      return false;
-
-    // If current is -1, then we are either at the very beginning, or the very
-    // end.
-
-    if (FCGX_HasSeenEOF(stream) == -1) // -1 == EOF
-      return true;
-    int c = FCGX_GetChar(stream);
-    if (c == -1)
-      return true;
-    FCGX_UnGetChar(c, stream);
-    return false;
-  }
-
-  void popFront()
-  {
-    current = FCGX_GetChar(stream);
-  }
-
-  @property char front()
-  {
-    if (current == -1)
-      popFront();
-    return cast(char) current;
-  }
-+/
 }
 
 //---------------------------------------------------------------------------
@@ -140,7 +113,7 @@ final class FCGI_Request
 
 //---------------------------------------------------------------------------
 
-void FCGI_loop(void function(FCGI_Request) fp)
+void fcgi_loop(void function(FCGI_Request) fp)
 {
   FCGX_Init();
 
