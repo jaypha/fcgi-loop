@@ -18,12 +18,6 @@ library consists of the following modules.
 * jaypha.fcgi.loop
 * jaypha.fcgi.c.fcgiapp.di
 
-Why not use Deimos Fcgi?
-------------------------
-
-The Deimos bindings lack the necessary copyright and license information,
-making it unsuitable for commercial use.
-
 License
 -------
 
