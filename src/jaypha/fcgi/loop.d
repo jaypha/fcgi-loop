@@ -20,14 +20,14 @@ import std.array;
 
 import jaypha.fcgi.c.fcgiapp;
 
-enum default_thread_count = 10;
+enum defaultThreadCount = 10;
 
 // Note: In HTTP, input and output are octet streams. That is, an array of ubytes.
 
 //---------------------------------------------------------------------------
 // An adapter for outgoing FCGI streams that acts as an output range.
 //-------------------------------------
-struct FCGI_OutStream
+struct FcgiOutStream
 //-------------------------------------
 {
   FCGX_Stream* stream;
@@ -51,7 +51,7 @@ struct FCGI_OutStream
 //---------------------------------------------------------------------------
 // An adapter for incoming FCGI streams that acts as an input range.
 //-------------------------------------
-struct FCGI_InStream
+struct FcgiInStream
 //-------------------------------------
 {
   FCGX_Stream* stream;
@@ -77,52 +77,49 @@ struct FCGI_InStream
 //---------------------------------------------------------------------------
 // Bundle up stuff used by a request.
 //-------------------------------------
-struct FCGI_Request
+struct FcgiRequest
 //-------------------------------------
 {
   private FCGX_Request request;
 
-  FCGI_OutStream fcgi_out;
-  FCGI_OutStream fcgi_err;
-  FCGI_InStream  fcgi_in;
-
-  uint threadNo;
+  FcgiOutStream fcgiOut;
+  FcgiOutStream fcgiErr;
+  FcgiInStream  fcgiIn;
 
   string[string] env;
 
   private void prepare()
   {
-    fcgi_out = FCGI_OutStream(request._out);
-    fcgi_err = FCGI_OutStream(request._err);
-    fcgi_in  = FCGI_InStream(request._in);
-    env = pp_to_assoc(cast(const(char)**) request.envp);
+    fcgiOut = FcgiOutStream(request._out);
+    fcgiErr = FcgiOutStream(request._err);
+    fcgiIn  = FcgiInStream(request._in);
+    env = ppToAssoc(cast(const(char)**) request.envp);
   }
 }
 
 //---------------------------------------------------------------------------
 // Main loop.
 
-void fcgi_loop(void function(ref FCGI_Request) fp, uint num_threads = default_thread_count)
+void fcgiLoop(void function(ref FcgiRequest) callback, uint numThreads = defaultThreadCount)
 {
   // Spawn the required number of threads.
-  foreach(i;0..num_threads)
-    spawnLinked(&new_thread, fp);
+  foreach(i;0..numThreads)
+    spawnLinked(&newThread, callback);
 
   // Each time a thread terminates, spawn a new one.
   while (true)
   {
     auto m = receiveOnly!LinkTerminated();
-    spawnLinked(&new_thread, fp);
+    spawnLinked(&newThread, callback);
   }
 }
 
 //---------------------------------------------------------------------------
+// This function indefinitely loops through each request.
 
-immutable string basic_error_response = "Content-Type: text/plain\r\nStatus: 500 Internal Error\r\n\r\n";
-
-private void new_thread(void function(ref FCGI_Request) fp)
+private void newThread(void function(ref FcgiRequest) fp)
 {
-  FCGI_Request rr;
+  FcgiRequest rr;
 
   FCGX_Init();
 
@@ -131,10 +128,6 @@ private void new_thread(void function(ref FCGI_Request) fp)
     FCGX_InitRequest(&rr.request, 0, 0);
     FCGX_Accept_r(&rr.request);
     scope(exit) { FCGX_Finish_r(&rr.request); }
-    scope(failure)
-    {
-      FCGX_PutStr(basic_error_response.ptr, cast(int)basic_error_response.length, rr.request._out);
-    }
 
     rr.prepare();
     fp(rr);
@@ -154,7 +147,7 @@ private void new_thread(void function(ref FCGI_Request) fp)
  */
 
 
-string[string] pp_to_assoc(const(char)** pp)
+private string[string] ppToAssoc(const(char)** pp)
 {
   string[string] ass;
 
@@ -185,15 +178,15 @@ unittest
 {
   import std.range, std.string;
 
-  static assert(isOutputRange!(FCGI_OutStream,const(ubyte)[]));
-  static assert(isOutputRange!(FCGI_OutStream,const ubyte));
+  static assert(isOutputRange!(FcgiOutStream,const(ubyte)[]));
+  static assert(isOutputRange!(FcgiOutStream,const ubyte));
 
   const(char)*[] pp;
   pp ~= std.string.toStringz("timber=alice");
   pp ~= std.string.toStringz("usb=false");
   pp ~= null;
 
-  auto ass = pp_to_assoc(pp.ptr);
+  auto ass = ppToAssoc(pp.ptr);
 
   assert (ass.length == 2);
   assert ("timber" in ass);

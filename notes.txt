@@ -3,7 +3,7 @@ synchronised class to access FCGX_PutStr and FCGX_PutChar.
 
 Something like this
 
-synchronized SFCGI_OutStream
+synchronized SFcgiOutStream
 {
   void put(const char[] c, FCGX_Stream *stream)
   {
@@ -16,9 +16,9 @@ synchronized SFCGI_OutStream
   }
 }
 
-shared SFCGI_OutStream fcgi_os; // create in FCGI_loop.
+shared SFcgiOutStream fcgiOs; // create in fcgiLoop.
 
-class FCGI_OutStream
+class FcgiOutStream
 {
   FCGX_Stream* stream;
 
@@ -29,12 +29,12 @@ class FCGI_OutStream
 
   void put(const char[] c)
   {
-    fcgi_os.put(c, stream);
+    fcgiOs.put(c, stream);
   }
 
   void put(const char c)
   {
-    fcgi_os.put(c, stream);
+    fcgOos.put(c, stream);
   }
 }
 

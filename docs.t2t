@@ -1,0 +1,60 @@
+FCGI Loop
+An interface for FCGI written in D.
+By Jason den Dulk
+
+%!options(xhtml): --css-sugar
+%!encoding: utf-8
+
+This module implements a simple loop interface with FCGI suitable for use with
+D programs.
+
+The main function ``fcgi_loop`` creates a number of threads, based on the
+parameter given. Each thread then uses an infinite loop to listen to incoming
+FCGI requests.
+
+For each request, an FcgiRequest struct is filled and passed to the given
+callback. The callback is responsible for processing the request and
+generating a viable response.
+
+==== fcgiLoop ====
+```
+void fcgiLoop(void function(ref FcgiRequest)  callback, uint numThreads)
+```
+|| Arguement | Description
+| callback | function to call for each request
+| numThreads | number of threads to create, defaults to 10.
+
+
+Creates a number of threads. Each thread runs a loop which does the following:
+
++ Gets the next request in the queue.
++ Creates input and output ranges for the request in/out streams.
++ Creates a string[string] associative array for the environment variables.
++ Calls the callback function with the D friendly structures just created.
+
+
+== Structures ==
+
+Several structures are used in the interface.
+
+**Note:** In HTTP, input and output are defined as //octet streams//. That
+is, streams of ubyte.
+
+=== struct FcgiOutStream ===
+
+Output range wrapper for FCGI output streams. Supports put for ``const ubyte``
+and ``const(ubyte)[]``.
+
+=== struct FcgiInStream ===
+
+Input range wrapper for FCGI input streams. 
+
+=== struct FcgiRequest ===
+
+Aggregate containing stuff needed to process a request.
+
+|| Property | Type | Description
+| fcgiOut | FcgiOutStream | The main output stream
+| fcgiErr | FcgiOutStream | Output stream for errors
+| fcgiIn | FcgiInStream | Input stream.
+| env | string[string] | AA for environment variables. Includes HTTP headers of input.

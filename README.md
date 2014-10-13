@@ -6,7 +6,8 @@ This project contains a simple D front end for the Open Market FCGI library.
 Usage
 -----
 
-Call `fcgi_loop` with a callback function to process requests. See documentation for more details.
+Call `fcgiLoop` with a callback function to process requests. See documentation
+and sample program for more details.
 
 
 Modules
@@ -24,3 +25,8 @@ License
 All original code is distributed under the Boost License
 (see LICENSE.txt). Third party licenses are kept in the licenses
 directory.
+
+Todo
+----
+
+* Need to put a timeout for each request.

@@ -1,6 +1,6 @@
 // Written in the D programming language.
 /*
- * Sample fcgi program.
+ * Sample fcgi-loop program.
  *
  * Copyright 2013 Jaypha
  *
@@ -13,19 +13,36 @@ module sample;
 
 import jaypha.fcgi.loop;
 
-void process(ref FCGI_Request r)
+import std.conv;
+
+//----------------------------------------------------------------------------
+// Function that is called for each request.
+
+void process(ref FcgiRequest r)
 {
   /*
    * Your code to process the request.
    */
 
-  r.fcgi_out.put(cast(const(ubyte)[])"Content-Type: text/plain\r\n");
-  r.fcgi_out.put(cast(const(ubyte)[])"\r\n");
-  r.fcgi_out.put(cast(const(ubyte)[])"Hello World!\r\n");
-  r.fcgi_out.put(cast(const(ubyte)[])"This is FCGI Loop\r\n");
+
+  r.fcgiOut.put(cast(const(ubyte)[])"Content-Type: text/plain\r\n");
+  r.fcgiOut.put(cast(const(ubyte)[])"\r\n");
+  r.fcgiOut.put(cast(const(ubyte)[])"Hello World!\r\n");
+  r.fcgiOut.put(cast(const(ubyte)[])"This is FCGI Loop\r\n\r\n");
+  r.fcgiOut.put(cast(const(ubyte)[])"Environment:\r\n");
+  foreach (i,v; r.env)
+  {
+    r.fcgiOut.put(cast(const(ubyte)[])i);
+    r.fcgiOut.put(cast(const(ubyte)[])": ");
+    r.fcgiOut.put(cast(const(ubyte)[])v);
+    r.fcgiOut.put(cast(const(ubyte)[])"\r\n");
+  }
 }
+
+//----------------------------------------------------------------------------
 
 void main()
 {
-  fcgi_loop(&process);
+  // Simply call fcgiLoop with the named callback.
+  fcgiLoop(&process);
 }
