@@ -11,7 +11,7 @@
 			"name": "sample",
 			"targetType": "executable",
       "targetName": "sample.fcgi",
-      "mainSourceFile": "sample.d"
+      "mainSourceFile": "src/sample.d"
 		}
   ]
 }
